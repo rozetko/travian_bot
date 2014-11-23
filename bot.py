@@ -306,11 +306,23 @@ class Bot(object):
 
 			params = urlencode({
 				'id': fieldId,
-				'newdid': villageId,
-				't': 0
+				'newdid': villageId
 			})
 			url = urljoin(self.server, 'build.php?%s' %params)
 			html = self.sendRequest(url)
+
+			if 'container active' in html: # Tabs in building
+				log.debug('Switching to 1st tab')
+
+				tab = findall('href="build.php\?(\w+)=\d+', html)[0]
+
+				params = urlencode({
+					'id': fieldId,
+					'newdid': villageId,
+					tab: '0'
+				})
+				url = urljoin(self.server, 'build.php?%s' %params)
+				html = self.sendRequest(url)
 
 			if 'gid0' in html: # Not built yet
 				log.info('There is no building in id%s in %d village yet' %(fieldId, village))
@@ -523,6 +535,8 @@ class Bot(object):
 			req = Request(url, data)
 			resp = urlopen(req, timeout = 5)
 			html = resp.read()
+			
+			log.debug(resp.geturl())
 
 			blocked = 'FF0000' in html
 			
