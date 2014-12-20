@@ -53,18 +53,18 @@ class Bot(object):
 
 		self.login()
 
-		search = self.config.get()['search']['enable']
+		search = int(self.config.get()['search']['enable'])
 		if search:
 			self.search()
 			return
 
 		while 1:
 			try:
-				build = self.config.get()['build']['enable']
+				build = int(self.config.get()['build']['enable'])
 				if build:
 					self.build()
 
-				adventure = self.config.get()['adventures']['enable']
+				adventure = int(self.config.get()['adventures']['enable'])
 				if adventure:
 					self.adventure()
 			except KeyboardInterrupt:
@@ -578,7 +578,7 @@ class Config(object):
 		self.config = {}
 
 		if not os.path.exists(self.filename):
-			log.critical('Config constructor', 'No config file: %s' %self.filename)
+			log.critical('No config file: %s' %self.filename)
 			raise Exception('No config file: %s' %self.filename)
 
 		self.lastModification = os.path.getmtime(self.filename)
