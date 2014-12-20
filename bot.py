@@ -630,8 +630,9 @@ def main(configPath, logPath = 'log.log'):
 
 if __name__ == '__main__':
 	parser = OptionParser(usage="usage: %prog config")
+	(options, args) = parser.parse_args()
 
 	if len(args) != 1:
-        parser.error("Wrong number of arguments")
+		parser.error("Wrong number of arguments")
 
 	main(args[0])
