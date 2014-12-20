@@ -15,6 +15,7 @@
 
 import json, os.path, logging, sys
 from urllib2 import *
+from datetime import *
 from cookielib import CookieJar
 from urllib import urlencode
 from urlparse import urljoin
@@ -24,7 +25,7 @@ from time import sleep
 from re import findall, search
 from math import pow, sqrt
 from operator import itemgetter
-from datetime import *
+from optparse import OptionParser
 
 class Bot(object):
 	def __init__(self, config):
@@ -604,13 +605,13 @@ class Config(object):
 		with open(self.filename, 'w') as f:
 			json.dump(self.config, f, indent = 4)
 
-def setUpLogger():
+def setUpLogger(logPath):
 	global log
 
 	log = logging.getLogger('bot')
 	log.setLevel(logging.DEBUG)
 
-	fileHandler = logging.FileHandler('log.log')
+	fileHandler = logging.FileHandler(logPath)
 	consoleHandler = logging.StreamHandler()
 
 	fileHandler.setLevel(logging.WARNING)
@@ -622,10 +623,15 @@ def setUpLogger():
 	log.addHandler(fileHandler)
 	log.addHandler(consoleHandler)
 
-def main():
-	setUpLogger() # Set up logger in global scope
-	config = Config('rozetko.json')
+def main(configPath, logPath = 'log.log'):
+	setUpLogger(logPath) # Set up logger in global scope
+	config = Config(configPath)
 	bot = Bot(config)
 
 if __name__ == '__main__':
-	main()
+	parser = OptionParser(usage="usage: %prog config")
+
+	if len(args) != 1:
+        parser.error("Wrong number of arguments")
+
+	main(args[0])
