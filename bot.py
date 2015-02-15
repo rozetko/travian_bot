@@ -1,16 +1,13 @@
-#!/usr/bin/python2
+#!/usr/bin/env python
 # encoding: utf-8
 
 ''' TODO:
-- НЕ УДАЛЯТЬ ВСЁ К ХУЯМ
+- don't delete everything when building resource fields and reach max lvl
 - upgrade warehouse/granary if not enough space
-- upgrade crop fields in not enough free crop
+- upgrade crop fields if not enough free crop
 - farm
-- farm list to JSON
 - waiting while building is upgrading
-- threads
 - check hero HP before adventure
-- progressbar
 '''
 
 import json, os.path, logging, sys
@@ -26,6 +23,9 @@ from re import findall, search
 from math import pow, sqrt
 from operator import itemgetter
 from optparse import OptionParser
+from daemonize import Daemonize
+from subprocess import call
+from os import system
 
 class Bot(object):
 	def __init__(self, config):
@@ -35,7 +35,8 @@ class Bot(object):
 		self.IRON = '3'
 		self.CROP = '4'
 
-		errorDelay = 5
+		errorDelay = 10
+		delay = 10
 
 		self.config = config
 		
@@ -54,11 +55,6 @@ class Bot(object):
 
 		self.login()
 
-		search = int(self.config.get()['search']['enable'])
-		if search:
-			self.search()
-			return
-
 		while 1:
 			try:
 				build = int(self.config.get()['build']['enable'])
@@ -68,6 +64,8 @@ class Bot(object):
 				adventure = int(self.config.get()['adventures']['enable'])
 				if adventure:
 					self.adventure()
+
+				sleep(delay)
 			except KeyboardInterrupt:
 				return
 			except socket.timeout or URLError:
@@ -92,7 +90,7 @@ class Bot(object):
 					'name': self.username,
 					'password': self.password,
 					's1': s1,
-					'w': '1024:600',
+					'w': '1366:768',
 					'login': login
 				}
 
@@ -109,129 +107,9 @@ class Bot(object):
 
 				self.loggedIn = True
 				self.getInfo(html)
-			except socket.timeout:
+			except socket.timeout  or URLError:
 				log.warn('Internet connection error')
 				continue
-
-	def search(self):
-		# "{k.vt} {k.f1}" - 9
-		# "{k.vt} {k.f6}" - 15
-
-		config = self.config.get()
-		
-		searchRange = config['search']['range']
-		village = config['search']['village']
-		villages = config['search']['villages']
-		maxPopulation = config['search']['maxPopulation']
-		oasises = config['search']['oasises']
-		delay = int(config['search']['delay'])
-
-		x = int(config['info']['x'][village - 1])
-		y = int(config['info']['y'][village - 1])
-		ajaxToken = config['info']['ajaxToken']
-
-		data = {
-			'cmd': 'mapPositionData', 
-			'data[x]': x,
-			'data[y]': y,
-			'data[zoomLevel]': 3,
-			'ajaxToken': ajaxToken
-		}
-
-		url = urljoin(self.server, 'ajax.php')
-		resp = self.sendRequest(url, data)
-		mapInfo = json.loads(resp.replace('response', '"response"'))['response'] # .replace('response', '"response"') - because without quotes it's non-valid JSON
-		
-		if mapInfo['error'] == True:
-			raise Exception(mapInfo['errorMsg'])
-		
-		farmList = []
-
-		for cell in mapInfo['data']['tiles']:
-			try:
-				X = int(cell['x'])
-				Y = int(cell['y'])
-
-				distance = sqrt(pow(X - x, 2) + pow(Y - y, 2))
-				villageId = int(cell['d'])
-
-				if distance <= searchRange:
-					if villageId >= 0:
-						if villages:
-							population = int(findall('{k.einwohner}\s+(\d+)', cell['t'])[0])
-							if population <= maxPopulation:
-								farmList.append([X, Y, distance])
-					else:
-						if oasises:
-							params = urlencode({
-								'x': X,
-								'y': Y 
-							})
-							
-							try:
-								html = self.sendRequest(urljoin(self.server, 'position_details.php?%s' %params))
-								parser = BeautifulSoup(html)
-								table = parser.find('table', {'id': 'troop_info'})
-
-								animals = table.find_all('img')
-								amount = table.find_all('td', {'class': 'val'})
-
-								animalList = [int(unit['class'][1][1:]) for unit in animals]
-								amountList = [int(unit.text) for unit in amount]
-
-								animalDict = dict(zip(animalList, amountList))
-
-								defence = [0, 0] # Unmounted/horse
-
-								for animal, amount in animalDict.items():
-									if animal == 31:
-										defence[0] += 25 * amount
-										defence[1] += 20 * amount
-									elif animal == 32:
-										defence[0] += 35 * amount
-										defence[1] += 40 * amount
-									elif animal == 33:
-										defence[0] += 40 * amount
-										defence[1] += 60 * amount
-									elif animal == 34:
-										defence[0] += 66 * amount
-										defence[1] += 50 * amount
-									elif animal == 35:
-										defence[0] += 70 * amount
-										defence[1] += 33 * amount
-									elif animal == 36:
-										defence[0] += 80 * amount
-										defence[1] += 70 * amount
-									elif animal == 37:
-										defence[0] += 140 * amount
-										defence[1] += 200 * amount
-									elif animal == 38:
-										defence[0] += 380 * amount
-										defence[1] += 240 * amount
-									elif animal == 39:
-										defence[0] += 170 * amount
-										defence[1] += 250 * amount
-									elif animal == 40:
-										defence[0] += 440 * amount
-										defence[1] += 520 * amount
-
-								if not defence[0]:
-									farmList.append([X, Y, distance])
-
-								#if 40 in animalList:
-								#	farmList.append([X, Y, distance])
-								sleep(delay)
-								
-							except:
-								pass
-			except KeyError:
-				pass
-
-		farmList.sort(key = itemgetter(2))
-		with open('farm_list.txt', 'w') as f:
-			f.write(json.dumps(farmList))
-
-		log.info('Found %d targets' %len(farmList))
 
 	def build(self):
 		config = self.config.get()
@@ -612,27 +490,56 @@ def setUpLogger(logPath):
 	log.setLevel(logging.DEBUG)
 
 	fileHandler = logging.FileHandler(logPath)
-	consoleHandler = logging.StreamHandler()
 
-	fileHandler.setLevel(logging.WARNING)
-	consoleHandler.setLevel(logging.DEBUG)
+	fileHandler.setLevel(logging.DEBUG)
 
 	fileHandler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-	consoleHandler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 
 	log.addHandler(fileHandler)
-	log.addHandler(consoleHandler)
 
-def main(configPath, logPath = 'log.log'):
-	setUpLogger(logPath) # Set up logger in global scope
-	config = Config(configPath)
-	bot = Bot(config)
+	return fileHandler
+
+class Daemon(object):
+	def __init__(self, config):
+		self.workingDirectory = os.path.dirname(os.path.abspath(__file__))
+		self.config = config
+		self.pidFile = '/tmp/bot_%s.pid' %(self.config.replace('.json', ''))
+
+	def main(self):
+		config = Config(os.path.join(self.workingDirectory, self.config))
+		Bot(config)
+
+	def start(self):
+		fileHandler = setUpLogger(os.path.join(self.workingDirectory, 'debug.log'))
+
+		keep_fds = [fileHandler.stream.fileno()]
+
+		Daemonize(app = 'bot', pid = self.pidFile, action = self.main, keep_fds = keep_fds, verbose = True, logger = log).start()
+
+	def stop(self):
+		try:
+			with open(self.pidFile, 'r') as f:
+				pid = int(f.read())
+		except OSError:
+			print 'Error: Daemon is not running'
+
+		system('kill -15 %d' %pid)
 
 if __name__ == '__main__':
-	parser = OptionParser(usage="usage: %prog config")
+	parser = OptionParser(usage="usage: %prog config_filename start|stop")
 	(options, args) = parser.parse_args()
+	
+	if len(args) == 2:
+		config = args[0]
 
-	if len(args) != 1:
+		daemon = Daemon(config)
+
+		if 'start' == args[1]:
+			daemon.start()
+		elif 'stop' == args[1]:
+			daemon.stop()
+		else:
+			parser.error("Unknown command: %s" %args[1])
+		sys.exit(0)
+	else:
 		parser.error("Wrong number of arguments")
-
-	main(args[0])
