@@ -52,6 +52,7 @@ class Bot(object):
 		self.username = config['login']['username']
 		self.password = config['login']['password']
 		self.loggedIn = False
+		self.paused = False
 
 		self.login()
 
@@ -406,6 +407,15 @@ class Bot(object):
 			log.warn('Something went wrong while starting adventure')
 
 	def sendRequest(self, url, data = {}):
+		while int(self.config.get()['pause']):
+			if not self.paused:
+				log.info('Bot is paused')
+				self.paused = True
+			sleep(1)
+
+		if self.paused:
+			self.paused = False
+
 		argData = data
 		data = urlencode(argData)
 
