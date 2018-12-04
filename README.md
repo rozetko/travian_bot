@@ -13,5 +13,3 @@ To stop:
 Example of config-file (example.json):
 
 http://pastebin.com/tLMPkhWf
-
-Good luck!
