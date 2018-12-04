@@ -10,6 +10,6 @@ Run:
 Stop:
 `$ python bot.py example.json stop`
 
-Example of config-file (example.json):
+Example of config-file (`example.json`):
 
 http://pastebin.com/tLMPkhWf
