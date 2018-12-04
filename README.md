@@ -4,10 +4,10 @@ Default log file: debug.log
 
 Log-, config- and pid-files should have write and read permissions.
 
-How to run it:
+Run:
 `$ python bot.py example.json start`
 
-To stop:
+Stop:
 `$ python bot.py example.json stop`
 
 Example of config-file (example.json):
