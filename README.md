@@ -1,5 +1,5 @@
 Travian 4 bot for *nix systems. (Doesn't work on Windows)
-Working as a Unix daemon.
+Working as a Unix daemon
 Default log file: debug.log
 
 Log-, config- and pid-files should have write and read permissions.
